@@ -1,0 +1,321 @@
+---
+title: "Homework 2 Coding Part"
+author: "Zhaoyan Song"
+date: "10/10/2023"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+
+
+# (a) Write a code to calculate the two stage least squares estimator. (Recall that it involves two regression models; first regressing $D_i$ on $Z_i$ and next regressing $Y_i$ on $\hat{D}i$.)
+
+
+```{r 1a}
+library(MASS)
+twoSLS <- function(Y,D,Z) {
+  first_lm <-lm(D~Z[,1]+Z[,2])
+  second_lm <- lm(Y~first_lm$fitted.values)
+  coeff <- coef(second_lm)[2]
+  Fstat <- anova(second_lm)$F[1]
+  return(c(coeff,Fstat))
+}
+
+```
+
+
+# (b)  Using simulation, calculate the mean squared error (MSE) for estimating $\beta$ under the following specifications of $\beta$ and $\pi$. (Use a seed so the results may be reproduced.)
+
+
+First, write a data generating function:
+
+```{r 1b-prep}
+data_gen <- function(BETA,PI,size=30,
+                     covariance=matrix(c(1,.4,.4,1),nrow = 2),seed) {
+  set.seed(seed)
+  Y <- D <- rep(0,size)
+  Z <- matrix(runif(size*2),ncol = 2)
+  eps_eta <- mvrnorm(size,c(0,0),covariance)
+  eps <- eps_eta[,1]
+  eta <- eps_eta[,2]
+  for(i in 1:size) {
+    D[i] <- sum(Z[i,]*PI)+eta[i]
+    Y[i] <- BETA*D[i]+eps[i]
+  }
+  return(list(Y=Y,D=D,Z=Z))
+}
+```
+
+Then we can estimate MSE in each scenario.
+
+(\mbox{i}) $\beta=2, \pi=(2,2)^T$
+
+```{r 2b1}
+beta_est <- rep(NA,100)
+F_stat1 <- rep(NA,100)
+for(j in 1:100) {
+  data <- data_gen(2,c(2,2),seed=j+534)
+  beta_est[j] <- twoSLS(data$Y,data$D,data$Z)[1]
+  F_stat1[j] <-twoSLS(data$Y,data$D,data$Z)[2]
+}
+
+(MSE <- (mean(beta_est)-2)^2+var(beta_est))
+cat(paste0('Case i MSE: ', MSE))
+
+```
+
+
+(\mbox{ii}) $\beta=2, \pi=(1,1)^T$
+
+```{r 2b2}
+beta_est <- rep(NA,100)
+F_stat2 <- rep(NA,100)
+for(j in 1:100) {
+  data <- data_gen(2,c(1,1),seed=j+534)
+  beta_est[j] <- twoSLS(data$Y,data$D,data$Z)[1]
+  F_stat2[j] <-twoSLS(data$Y,data$D,data$Z)[2]
+}
+
+(MSE <- (mean(beta_est)-2)^2+var(beta_est))
+cat(paste0('Case ii MSE: ', MSE))
+
+```
+
+(\mbox{iii}) $\beta=2, \pi=(.1,.1)^T$
+
+```{r 2b3}
+beta_est <- rep(NA,100)
+F_stat3 <- rep(NA,100)
+for(j in 1:100) {
+  data <- data_gen(2,c(.1,.1),seed=j+534)
+  beta_est[j] <- twoSLS(data$Y,data$D,data$Z)[1]
+  F_stat3[j] <-twoSLS(data$Y,data$D,data$Z)[2]
+}
+
+(MSE <- (mean(beta_est)-2)^2+var(beta_est))
+cat(paste0('Case iii MSE: ', MSE))
+
+```
+
+
+(\mbox{iv}) $\beta=2, \pi=(1,0)^T$
+
+```{r 2b4}
+beta_est <- rep(NA,100)
+F_stat4 <- rep(NA,100)
+for(j in 1:100) {
+  data <- data_gen(2,c(1,0),seed=j+534)
+  beta_est[j] <- twoSLS(data$Y,data$D,data$Z)[1]
+  F_stat4[j] <-twoSLS(data$Y,data$D,data$Z)[2]
+}
+
+(MSE <- (mean(beta_est)-2)^2+var(beta_est))
+cat(paste0('Case iv MSE: ', MSE))
+
+```
+
+
+A comparison of MSE is ordered by i < ii < iv < iii. This implies a stronger association between $Z_i$ and $D_i$, there is a less MSE in the estimation of causal effect in 2SLS model.The reason is because more association guarantees a better representation of $D_i$ using $\hat{D}_i,$ resulting in less error of estimating coefficient $\beta$.
+
+
+# (c) Using simulation, calculate the mean value of the F-test for testing $H_0 : \pi = 0$ for each of the cases above. Discuss the results in relation to the MSEs calculated above.
+
+Here since I stored the F-statistics in the previous question, I could print out the value for each scenario:
+
+```{r 1c}
+(mean(F_stat1))
+cat(paste0('Case i statistics: ', mean(F_stat1)))
+(mean(F_stat2))
+cat(paste0('Case ii statistics: ', mean(F_stat2)))
+(mean(F_stat3))
+cat(paste0('Case iii statistics: ', mean(F_stat3)))
+(mean(F_stat4))
+cat(paste0('Case iv statistics: ', mean(F_stat4)))
+```
+
+A comparison of F-statistics is ordered by i > ii > iv > iii. The smaller the MSE is, the larger the F-statistics is. We are more likely to reject the null $\pi=0$ if strong associtation exists between $Z_i$ and $D_i$.
+
+
+## Question 2. Generate the data under data generating model in 1(b)(ii) above. But calculate MSE for the 2SLS estimator that only uses $Z_{i1}$. Compare the results.
+
+```{r }
+twoSLS <- function(Y,D,Z) {
+  first_lm <-lm(D~Z[,1])
+  second_lm <- lm(Y~first_lm$fitted.values)
+  coeff <- coef(second_lm)[2]
+  Fstat <- anova(second_lm)$F[1]
+  return(c(coeff,Fstat))
+}
+
+beta_est <- rep(NA,100)
+F_stat2 <- rep(NA,100)
+for(j in 1:100) {
+  data <- data_gen(2,c(1,1),seed=j+534)
+  beta_est[j] <- twoSLS(data$Y,data$D,data$Z)[1]
+  F_stat2[j] <-twoSLS(data$Y,data$D,data$Z)[2]
+}
+
+(MSE <- (mean(beta_est)-2)^2+var(beta_est))
+```
+
+The MSE is much larger than using both $Z_{i1}$ and $Z_{i2}$ because we misspecify the model.
+
+
+## Question 3. Incorrectly specified model
+
+```{r q3}
+data_gen <- function(BETA,PI,size=30,
+                     covariance=matrix(c(1,.4,.4,1),nrow = 2),seed) {
+  set.seed(seed)
+  Y <- D <- rep(0,size)
+  Z <- matrix(runif(size*2),ncol = 2)
+  eps_eta <- mvrnorm(size,c(0,0),covariance)
+  eps <- eps_eta[,1]
+  eta <- eps_eta[,2]
+  for(i in 1:size) {
+    D[i] <- sum(log(Z[i,])*PI)+eta[i]
+    Y[i] <- BETA*D[i]+eps[i]
+  }
+  return(list(Y=Y,D=D,Z=Z))
+}
+
+```
+
+Then we can estimate MSE in each scenario.
+
+
+(\mbox{i}) $\beta=2, \pi=(2,2)^T$
+
+```{r 3b1}
+beta_est <- rep(NA,100)
+F_stat1 <- rep(NA,100)
+for(j in 1:100) {
+  data <- data_gen(2,c(2,2),seed=j+534)
+  beta_est[j] <- twoSLS(data$Y,data$D,data$Z)[1]
+  F_stat1[j] <-twoSLS(data$Y,data$D,data$Z)[2]
+}
+
+(MSE <- (mean(beta_est)-2)^2+var(beta_est))
+
+```
+
+
+(\mbox{ii}) $\beta=2, \pi=(1,1)^T$
+
+```{r 3b2}
+beta_est <- rep(NA,100)
+F_stat2 <- rep(NA,100)
+for(j in 1:100) {
+  data <- data_gen(2,c(1,1),seed=j+534)
+  beta_est[j] <- twoSLS(data$Y,data$D,data$Z)[1]
+  F_stat2[j] <-twoSLS(data$Y,data$D,data$Z)[2]
+}
+
+(MSE <- (mean(beta_est)-2)^2+var(beta_est))
+
+```
+
+
+(\mbox{iii}) $\beta=2, \pi=(.1,.1)^T$
+
+```{r 3b3}
+beta_est <- rep(NA,100)
+F_stat3 <- rep(NA,100)
+for(j in 1:100) {
+  data <- data_gen(2,c(.1,.1),seed=j+534)
+  beta_est[j] <- twoSLS(data$Y,data$D,data$Z)[1]
+  F_stat3[j] <-twoSLS(data$Y,data$D,data$Z)[2]
+}
+
+(MSE <- (mean(beta_est)-2)^2+var(beta_est))
+
+```
+
+
+(\mbox{iv}) $\beta=2, \pi=(1,0)^T$
+
+```{r 3b4}
+beta_est <- rep(NA,100)
+F_stat4 <- rep(NA,100)
+for(j in 1:100) {
+  data <- data_gen(2,c(1,0),seed=j+534)
+  beta_est[j] <- twoSLS(data$Y,data$D,data$Z)[1]
+  F_stat4[j] <-twoSLS(data$Y,data$D,data$Z)[2]
+}
+
+(MSE <- (mean(beta_est)-2)^2+var(beta_est))
+
+```
+
+
+Very counter-intuitively, the MSE of the misspecified model is smaller than correctly-specified model.
+
+
+## Question 4. Bootstrap based confidence interval
+
+The bootstrap works as follows: I randomly select $Y_i, Z_i, D_i$ from the dataset N times, and each time I compute the OLS estimator of $\beta$. Then I construct the confidence interval using the $2.5\%$ and $97.5\%$ quantile for the fitted coefficients.
+
+```{r 4boot}
+library(boot)
+boot2SLS <- function(YDZ,f) {
+  Y <- YDZ[f,1]
+  D <- YDZ[f,2]
+  Z <- YDZ[f,3:4]
+  return(twoSLS(Y,D,Z)[1])
+}
+
+# (b) i
+CI_length <- rep(NA,100)
+for(i in 1:100){
+  data <- data_gen(2,c(2,2),seed=i+534)
+  bootCorr <- boot(cbind(data$Y,data$D,data$Z), boot2SLS, R=500)
+  bootCi <- boot.ci(boot.out = bootCorr, type = "norm")
+  CI_length[i]<-bootCi$normal[3]-bootCi$normal[2]
+}
+
+(mean(CI_length))
+cat(paste0('average length of the confidence interval: ', mean(CI_length)))
+
+# (b) ii
+CI_length <- rep(NA,100)
+for(i in 1:100){
+  data <- data_gen(2,c(1,1),seed=i+534)
+  bootCorr <- boot(cbind(data$Y,data$D,data$Z), boot2SLS, R=500)
+  bootCi <- boot.ci(boot.out = bootCorr, type = "norm")
+  CI_length[i]<-bootCi$normal[3]-bootCi$normal[2]
+}
+
+(mean(CI_length))
+cat(paste0('average length of the confidence interval: ', mean(CI_length)))
+
+# (b) iii
+CI_length <- rep(NA,100)
+for(i in 1:100){
+  data <- data_gen(2,c(.1,.1),seed=i+534)
+  bootCorr <- boot(cbind(data$Y,data$D,data$Z), boot2SLS, R=500)
+  bootCi <- boot.ci(boot.out = bootCorr, type = "norm")
+  CI_length[i]<-bootCi$normal[3]-bootCi$normal[2]
+}
+
+(mean(CI_length))
+cat(paste0('average length of the confidence interval: ', mean(CI_length)))
+
+# (b) iv
+CI_length <- rep(NA,100)
+for(i in 1:100){
+  data <- data_gen(2,c(1,0),seed=i+534)
+  bootCorr <- boot(cbind(data$Y,data$D,data$Z), boot2SLS, R=500)
+  bootCi <- boot.ci(boot.out = bootCorr, type = "norm")
+  CI_length[i]<-bootCi$normal[3]-bootCi$normal[2]
+}
+
+(mean(CI_length))
+cat(paste0('average length of the confidence interval: ', mean(CI_length)))
+```
+
+When the association is weaker between $Z_i$ and $D_1$, the confidence interval tends to get larger, meaning more variability is introduced in the model.
+
